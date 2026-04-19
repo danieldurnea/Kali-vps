@@ -1,8 +1,7 @@
 #!/bin/bash
 # =============================================================================
-# ZEN-AI - SSH + ngrok Installer FINAL (Revizuit & Stabil)
+# ZEN-AI - SSH + ngrok Installer FINAL FIXAT (fără eroare gzip)
 # Pentru GitHub Codespaces / Ubuntu Workspace
-# Port: 2222 | Key-only | ngrok TCP | Fără erori systemd
 # =============================================================================
 
 set -euo pipefail
@@ -24,10 +23,10 @@ cat << "EOF"
    ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝ ╚═════╝ 
 EOF
 echo -e "${NC}"
-echo -e "\( {YELLOW}SSH + ngrok Installer - VERSIUNE FINALĂ (fără erori) \){NC}\n"
+echo -e "\( {YELLOW}SSH + ngrok Installer - VERSIUNE FIXATĂ (gzip error rezolvat) \){NC}\n"
 
 if [ "$EUID" -ne 0 ]; then
-    echo -e "\( {RED}❌ Rulează cu: sudo bash install-ssh-ngrok-final.sh \){NC}"
+    echo -e "\( {RED}❌ Rulează cu: sudo bash install-ssh-ngrok-final-fixed.sh \){NC}"
     exit 1
 fi
 
@@ -62,7 +61,6 @@ ClientAliveInterval 300
 MaxAuthTries 3
 EOF
 
-# Cheie SSH
 sudo -u kali mkdir -p /home/kali/.ssh
 sudo -u kali ssh-keygen -t ed25519 -f /home/kali/.ssh/id_ed25519 -N "" -C "kali@zen-ai" 2>/dev/null || true
 cat /home/kali/.ssh/id_ed25519.pub >> /home/kali/.ssh/authorized_keys 2>/dev/null || true
@@ -70,13 +68,11 @@ chmod 700 /home/kali/.ssh
 chmod 600 /home/kali/.ssh/authorized_keys
 chown -R kali:kali /home/kali/.ssh
 
-# Verificare port 2222
-if ss -tlnp | grep -q ":2222"; then
-    echo -e "\( {YELLOW}⚠️  Portul 2222 este deja folosit. Continuăm... \){NC}"
-else
-    echo -e "\( {CYAN}→ Pornire SSH pe port 2222... \){NC}"
-    /usr/sbin/sshd -f /etc/ssh/sshd_config || echo -e "\( {YELLOW}⚠️  SSH a pornit cu avertismente \){NC}"
-fi
+# Pornire SSH
+echo -e "\( {CYAN}→ Pornire SSH pe port 2222... \){NC}"
+pkill -f sshd 2>/dev/null || true
+sleep 1
+/usr/sbin/sshd -f /etc/ssh/sshd_config
 
 # 4. Firewall + Fail2Ban
 echo -e "\( {CYAN}→ Firewall + Fail2Ban... \){NC}"
@@ -92,13 +88,11 @@ port = 2222
 maxretry = 3
 bantime = 24h
 EOF
-
 service fail2ban restart 2>/dev/null || /etc/init.d/fail2ban restart 2>/dev/null || true
-echo -e "\( {GREEN}✅ Firewall + Fail2Ban configurate \){NC}"
 
-# 5. ngrok
-echo -e "\( {CYAN}→ Instalare ngrok... \){NC}"
-curl -sSL https://ngrok.com/download | tar xz -C /usr/local/bin
+# 5. ngrok (FIXAT - link direct stabil)
+echo -e "\( {CYAN}→ Instalare ngrok (versiune stabilă - fix gzip error)... \){NC}"
+curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz | tar xz -C /usr/local/bin
 chmod +x /usr/local/bin/ngrok
 
 echo -e "\( {YELLOW}→ Introdu ngrok Authtoken (din https://dashboard.ngrok.com): \){NC}"
@@ -111,41 +105,41 @@ fi
 
 ngrok config add-authtoken "$NGROK_TOKEN"
 
-# 6. Pornire ngrok + retry pentru adresă
+# 6. Pornire ngrok + retry
 echo -e "\( {CYAN}→ Pornire tunel ngrok pe port 2222... \){NC}"
 pkill -f "ngrok tcp 2222" 2>/dev/null || true
 nohup ngrok tcp 2222 --log=stdout > /var/log/ngrok.log 2>&1 &
-sleep 3
+sleep 5
 
-# Retry loop pentru ngrok URL
-for i in {1..10}; do
+# Retry pentru adresă
+for i in {1..12}; do
     NGROK_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | grep -o 'tcp://[^"]*' | head -1)
     if [ -n "$NGROK_URL" ] && [[ "$NGROK_URL" != *"Error"* ]]; then
         break
     fi
-    echo -e "${YELLOW}   Aștept ngrok... (\( i/10) \){NC}"
+    echo -e "${YELLOW}   Aștept ngrok... (\( i/12) \){NC}"
     sleep 2
 done
 
 if [ -z "$NGROK_URL" ] || [[ "$NGROK_URL" == *"Error"* ]]; then
     echo -e "\( {RED}❌ Nu s-a putut obține adresa ngrok. \){NC}"
-    echo -e "Verifică: cat /var/log/ngrok.log"
+    echo -e "Verifică log: cat /var/log/ngrok.log"
     exit 1
 fi
 
 # 7. Final LIVE
 echo -e "\n\( {GREEN}═══════════════════════════════════════════════════════════════ \){NC}"
-echo -e "\( {GREEN}✅ INSTALARE COMPLETĂ - SSH + ngrok LIVE \){NC}"
+echo -e "\( {GREEN}✅ INSTALARE COMPLETĂ - SSH + ngrok LIVE (gzip error rezolvat) \){NC}"
 echo -e "\( {GREEN}═══════════════════════════════════════════════════════════════ \){NC}\n"
 
-echo -e "\( {CYAN}🔐 SSH Command (copiază direct): \){NC}"
+echo -e "\( {CYAN}🔐 SSH Command (copiază): \){NC}"
 echo -e "   \( {YELLOW}ssh -p 2222 kali@ \){NGROK_URL#tcp://}${NC}\n"
 
-echo -e "\( {CYAN}🔑 Cheia privată (copiaz-o pe PC-ul tău): \){NC}"
+echo -e "\( {CYAN}🔑 Cheia privată: \){NC}"
 echo -e "   \( {YELLOW}cat /home/kali/.ssh/id_ed25519 \){NC}\n"
 
 echo -e "\( {CYAN}📍 ngrok Dashboard: \){NC} http://localhost:4040"
 echo -e "\( {CYAN}📜 Log ngrok: \){NC} cat /var/log/ngrok.log\n"
 
-echo -e "\( {GREEN}🎉 Totul funcționează! Conectează-te acum. \){NC}"
+echo -e "\( {GREEN}🎉 Totul e LIVE și funcționează! \){NC}"
 echo -e "\( {YELLOW}Made with ❤️ for ZEN-AI Bug Bounty Agent \){NC}"
