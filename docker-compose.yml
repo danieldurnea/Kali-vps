@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+  kali:
+    image: linuxserver/kali-linux:latest
+    container_name: zen-ai-kali
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Bucharest
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    volumes:
+      - ./config:/config
+      - ./entrypoint-kali.sh:/entrypoint-kali.sh:ro
+    ports:
+      - "2222:2222"   # SSH
+      - "3389:3389"   # XRDP (RDP direct)
+    privileged: true
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "/entrypoint-kali.sh"]
+
+  guacd:
+    image: guacamole/guacd:latest
+    container_name: zen-ai-guacd
+    restart: unless-stopped
+
+  guacamole:
+    image: guacamole/guacamole:latest
+    container_name: zen-ai-guacamole
+    environment:
+      - GUACD_HOSTNAME=guacd
+      - GUACD_PORT=4822
+      - GUACAMOLE_HOSTNAME=0.0.0.0
+      - GUACAMOLE_PORT=8080
+    ports:
+      - "8080:8080"   # Guacamole Web UI (RDP în browser)
+    depends_on:
+      - guacd
+      - kali
+    restart: unless-stopped
